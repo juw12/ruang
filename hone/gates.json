@@ -1,0 +1,30 @@
+{
+ "gates": {
+  "G1 unit math": true,
+  "G4 i18n coverage": true,
+  "G2a photo -> 3D room size": true,
+  "G2b seven styles render and differ": true,
+  "G2c drag moves furniture + auto-arrange runs": true,
+  "G2d renovation template + describe": true,
+  "G2e cost in local currency + tips": true,
+  "G2f share link round-trip": true,
+  "G2g language switch": true,
+  "G2 no console errors": true,
+  "G6 phone 390 px no horizontal overflow": true
+ },
+ "details": {
+  "G1 unit math": "54/54 pass; errors=[]",
+  "G4 i18n coverage": [],
+  "G2a photo -> 3D room size": "w=3.6 d=4.55 items=3/3 marked",
+  "G2b seven styles render and differ": "blank=[] same=[]",
+  "G2c drag moves furniture + auto-arrange runs": "moved 0.76 m",
+  "G2d renovation template + describe": "split=True describe->scandi",
+  "G2e cost in local currency + tips": "total='Rp\\xa014.800.000\\n\u2013 Rp\\xa085.600.000' notes=5",
+  "G2f share link round-trip": "code length 805",
+  "G2g language switch": "01 Foto 02 Ruang 03 Gaya 04 Tata 05 Renovasi 06 Biaya & tips",
+  "G2 no console errors": [],
+  "G6 phone 390 px no horizontal overflow": "max scrollWidth=390 errors=[]"
+ },
+ "seconds": 583.5,
+ "all_pass": true
+}

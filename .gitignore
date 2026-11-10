@@ -1,0 +1,7 @@
+hone/shots/
+hone/*.log
+hone/*.err
+hone/gates.done
+hone/council_*.json
+__pycache__/
+tests/dbg.py

@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Ruang sample photo generator</title>
+  <script type="importmap">
+    { "imports": { "three": "../vendor/three/three.module.js", "three/addons/": "../vendor/three/addons/" } }
+  </script>
+  <style>body { margin: 0; } #v { width: 1280px; height: 960px; }</style>
+</head>
+<body>
+  <div id="v"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { Viewer } from '../js/viewer.js';
+    import { CATALOG } from '../js/data.js';
+    import { footprint } from '../js/geom.js';
+
+    // Ground truth room used for the sample photo and for the reconstruction test.
+    export const TRUTH = {
+      room: { w: 3.6, d: 4.2, h: 2.7, doors: [{ wall: 'S', offset: 2.4, width: 0.9, height: 2.05 }], windows: [{ wall: 'N', offset: 2.2, width: 1.2, sill: 0.9, height: 1.3 }] },
+      cam: { x: 0.1, y: 1.3, z: 2.05, hfov: 69.4 },
+    };
+    const mk = (type, x, z, rot = 0) => ({ id: type + x, type, w: CATALOG[type].w, d: CATALOG[type].d, h: CATALOG[type].h, x, z, rot });
+    const items = [
+      mk('bed', -0.775, -1.2, Math.PI / 2),
+      mk('desk', 0.5, -1.8, 0),
+      mk('officeChair', 0.5, -1.2, Math.PI),
+      mk('wardrobe', 1.5, -1.2, -Math.PI / 2),
+      mk('rug', 0.2, -0.3, 0),
+      mk('plant', 1.5, 0.4, 0),
+    ];
+    const finish = { wall: { finish: 'paint', color: '#e6dfd2' }, floor: { type: 'oak', color: '#a9825a' }, ceiling: '#f4f2ee', lightK: 3200,
+      pal: { wood: '#9a7350', fabric: '#c7c0b4', accent: '#7f9273', lowBed: false } };
+
+    const viewer = new Viewer(document.getElementById('v'), {});
+    viewer.setStyle('realistic');
+    viewer.setRoom(TRUTH.room, finish);
+    viewer.setItems(items.map((it) => ({ ...it, flat: !!CATALOG[it.type].flat })), finish.pal);
+    viewer.setSun({ x: 0.35, y: 0.55, z: -0.75 }, true, 3200, true);
+    viewer.renderer.setPixelRatio(1);
+    viewer.resize();
+    const cam = viewer.camera;
+    const aspect = 1280 / 960;
+    cam.fov = 2 * Math.atan(Math.tan((TRUTH.cam.hfov / 2) * Math.PI / 180) / aspect) * 180 / Math.PI;
+    cam.aspect = aspect;
+    cam.position.set(TRUTH.cam.x, TRUTH.cam.y, TRUTH.cam.z);
+    viewer.controls.target.set(TRUTH.cam.x, TRUTH.cam.y, -TRUTH.room.d / 2);
+    viewer.controls.enableDamping = false;
+    viewer.controls.update();
+    cam.updateProjectionMatrix();
+
+    const px = (x, y, z) => {
+      const v = new THREE.Vector3(x, y, z).project(cam);
+      return { u: (v.x + 1) / 2 * 1280, v: (1 - v.y) / 2 * 960 };
+    };
+    window.makeSample = async () => {
+      for (let i = 0; i < 4; i++) {
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+      viewer.frame();
+      const r = TRUTH.room;
+      const tl = px(-r.w / 2, r.h, -r.d / 2);
+      const br = px(r.w / 2, 0, -r.d / 2);
+      const markers = [];
+      for (const it of items) {
+        // midpoint of the footprint edge nearest the camera = where a user taps
+        const fp = footprint(it);
+        let best = null;
+        for (let i = 0; i < 4; i++) {
+          const a = fp[i];
+          const b = fp[(i + 1) % 4];
+          const m = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+          if (!best || m.z > best.z) best = m;
+        }
+        const p = px(best.x, 0, best.z);
+        if (p.u > 0 && p.u < 1280 && p.v > 0 && p.v < 960) markers.push({ u: p.u, v: p.v, type: it.type, truth: { x: it.x, z: it.z, tap: best } });
+      }
+      const win = r.windows[0];
+      const wc = px(-r.w / 2 + win.offset + win.width / 2, win.sill + win.height / 2, -r.d / 2);
+      markers.push({ u: wc.u, v: wc.v, kind: 'window', truth: { offset: win.offset } });
+      return {
+        url: viewer.canvas.toDataURL('image/jpeg', 0.9),
+        meta: { w: 1280, h: 960, roomH: r.h, rect: { x0: tl.u, y0: tl.v, x1: br.u, y1: br.v }, markers, truth: TRUTH },
+      };
+    };
+    window.sampleReady = true;
+  </script>
+</body>
+</html>

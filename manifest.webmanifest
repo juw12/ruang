@@ -1,0 +1,9 @@
+{
+  "name": "Ruang - room photo to 3D planner",
+  "short_name": "Ruang",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#f4f1ea",
+  "icons": [{ "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

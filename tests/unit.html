@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Ruang unit tests</title>
+  <script type="importmap">
+    { "imports": { "three": "../vendor/three/three.module.js", "three/addons/": "../vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <pre id="out">running...</pre>
+  <script type="module">
+    import * as G from '../js/geom.js';
+    import * as A from '../js/architect.js';
+    import { REGIONS, PRICES, CATALOG, TEMPLATES } from '../js/data.js';
+    import { DICTS } from '../js/i18n.js';
+
+    const results = [];
+    const ok = (name, cond, detail = '') => results.push({ name, pass: !!cond, detail: String(detail) });
+    const near = (a, b, tol) => Math.abs(a - b) <= tol;
+
+    // G1a: photo reconstruction against the rendered ground-truth room
+    const meta = await (await fetch('../assets/sample-room.json')).json();
+    const T = meta.truth;
+    const rc = G.reconstruct({ imgW: meta.w, imgH: meta.h, rect: meta.rect, roomH: meta.roomH, fovDeg: T.cam.hfov });
+    ok('recon: room width within 5%', near(rc.roomW, T.room.w, T.room.w * 0.05), rc.roomW.toFixed(3));
+    ok('recon: camera height within 5%', near(rc.camH, T.cam.y, T.cam.y * 0.05), rc.camH.toFixed(3));
+    ok('recon: far-wall distance within 5%', near(rc.Zb, T.room.d / 2 + T.cam.z, 0.05 * (T.room.d / 2 + T.cam.z)), rc.Zb.toFixed(3));
+    const room = { ...T.room };
+    for (const m of meta.markers.filter((x) => x.type)) {
+      const p = G.pixelTo3D(rc, m.u, m.v);
+      if (p.face !== 'floor') {
+        ok(`recon: ${m.type} tap is on floor`, false, p.face);
+        continue;
+      }
+      const q = G.camToRoom(rc, p, room.d);
+      const err = Math.hypot(q.x - m.truth.tap.x, q.z - m.truth.tap.z);
+      ok(`recon: ${m.type} floor point within 12 cm`, err < 0.12, (err * 100).toFixed(1) + ' cm');
+    }
+    // a wrong lens assumption (60 deg instead of 69.4) must still give a plausible room (within 20%)
+    const rc60 = G.reconstruct({ imgW: meta.w, imgH: meta.h, rect: meta.rect, roomH: meta.roomH, fovDeg: 60 });
+    ok('recon: width is lens-independent (ratio of rect sides)', near(rc60.roomW, T.room.w, T.room.w * 0.05), rc60.roomW.toFixed(3));
+
+    // G1b: sun position vs closed form at solar noon (Greenwich, 21 Jun 2024)
+    const sp = G.solarPosition(new Date(Date.UTC(2024, 5, 21, 12, 1, 40)), 51.4769, 0);
+    ok('sun: noon altitude Greenwich within 0.5 deg', near(sp.altitude, 90 - 51.4769 + 23.44, 0.5), sp.altitude.toFixed(2));
+    ok('sun: noon azimuth due south within 2 deg', near(sp.azimuth, 180, 2), sp.azimuth.toFixed(2));
+    const spJ = G.solarPosition(new Date(Date.UTC(2024, 11, 21, 5, 0, 0)), -6.2, 106.8);
+    ok('sun: Jakarta noon in December = 90 - |lat - decl| = 72.8 deg (+-1)', near(spJ.altitude, 90 - Math.abs(-6.2 - spJ.declination), 0.6) && near(spJ.altitude, 72.8, 1), spJ.altitude.toFixed(1));
+    const night = G.solarPosition(new Date(Date.UTC(2024, 5, 21, 16, 0, 0)), -6.2, 106.8);
+    ok('sun: Jakarta 23:00 below horizon', night.altitude < 0, night.altitude.toFixed(1));
+    const sv = G.sunVector(30, 90, 0);
+    ok('sun: east sun points to +x when far wall faces north', sv.x > 0.8 && Math.abs(sv.z) < 0.01, JSON.stringify(sv));
+
+    // G1c: knapsack equals brute force
+    let seed = 42;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    let kOk = true;
+    for (let trial = 0; trial < 20; trial++) {
+      const items = Array.from({ length: 9 }, (_, i) => ({ id: 'k' + i, cost: Math.round(rnd() * 900 + 50), impact: Math.round(rnd() * 9 + 1) }));
+      const budget = Math.round(rnd() * 2500 + 300);
+      let best = 0;
+      for (let mask = 0; mask < 1 << items.length; mask++) {
+        let c = 0;
+        let v = 0;
+        items.forEach((it, i) => {
+          if (mask & (1 << i)) {
+            c += it.cost;
+            v += it.impact;
+          }
+        });
+        if (c <= budget && v > best) best = v;
+      }
+      const k = G.knapsack(items, budget, 2000);
+      if (k.impact !== best || k.cost > budget) kOk = false;
+    }
+    ok('budget optimiser equals brute force (20 random cases)', kOk);
+
+    // G1d: flow grid
+    const empty = { w: 3, d: 3, h: 2.6, doors: [{ wall: 'S', offset: 1, width: 0.9 }], windows: [] };
+    const g0 = G.flowGrid(empty, [], empty.doors[0], 0.1, 0.28);
+    ok('flow: empty room walkable area ~ (3-0.56)^2', near(g0.reachableArea, (3 - 0.56) ** 2, 0.4), g0.reachableArea.toFixed(2));
+    const wall = [{ id: 'w', type: 'wardrobe', x: 0, z: 0, w: 3, d: 0.6, h: 2, rot: 0 }];
+    const g1 = G.flowGrid(empty, wall, empty.doors[0], 0.1, 0.28);
+    ok('flow: wall-to-wall wardrobe cuts the room in two', g1.reachableArea < g0.reachableArea * 0.55, g1.reachableArea.toFixed(2));
+    ok('flow: far side unreachable', !G.reachableAt(g1, empty, { x: 0, z: -1.1 }, 0.05));
+
+    // G1e: overlap + door fit
+    ok('overlap: rotated boxes overlap', G.overlapDepth({ x: 0, z: 0, w: 2, d: 1, rot: 0.3 }, { x: 0.8, z: 0.3, w: 1, d: 1, rot: 0 }) > 0);
+    ok('overlap: separate boxes do not', G.overlapDepth({ x: 0, z: 0, w: 1, d: 1, rot: 0 }, { x: 2, z: 0, w: 1, d: 1, rot: 0.7 }) === 0);
+    const door = { width: 0.9, height: 2.05 };
+    ok('door: sofa 200x90x82 fits a 90 cm door', G.fitsThroughDoor(CATALOG.sofa, door));
+    ok('door: 1 m cube does not fit', !G.fitsThroughDoor({ w: 1, d: 1, h: 1 }, door));
+
+    // G5 + money: every price is sourced, conversion is exact
+    ok('prices: every price has a source', Object.values(PRICES).every((p) => p.src && p.low > 0 && p.high >= p.low));
+    const idr = A.money(PRICES.paint.low, REGIONS.ID);
+    ok('money: paint low in IDR = 2 x 10.7639 x 0.30 x 18080.8', near(idr, 2 * 10.7639 * 0.30 * 18080.8, 1), Math.round(idr));
+    ok('regions: every region has rate, plr, lat/lon', Object.values(REGIONS).every((r) => r.rate > 0 && r.plr > 0 && Math.abs(r.lat) <= 90));
+
+    // architect: analysis catches a door-swing clash and a blocked bed; auto-arrange improves the score
+    const st = {
+      region: 'ID', lens: 'fengshui', northDeg: 0,
+      room: { w: 3.6, d: 4.2, h: 2.7, doors: [{ wall: 'S', offset: 2.4, width: 0.9, height: 2.05 }], windows: [{ wall: 'N', offset: 2.2, width: 1.2, sill: 0.9, height: 1.3 }] },
+      finish: { wall: { finish: 'paint', color: '#e9e4da' }, floor: { type: 'laminate', color: '#b08a62' }, ceiling: '#f6f4ef', lightK: 3000, pal: { wood: '#a57f57', fabric: '#c9c3b8', accent: '#a84b25' } },
+      items: [
+        { id: 'b', type: 'bed', ...CATALOG.bed, x: 0, z: 0, rot: 0 },
+        { id: 'w', type: 'wardrobe', ...CATALOG.wardrobe, x: -0.9, z: 1.6, rot: 0 },
+      ],
+    };
+    const an = A.analyse(st);
+    ok('architect: flags wardrobe in the door swing', an.list.some((n) => n.key === 'chk.door'), an.list.map((n) => n.key).join(','));
+    ok('architect: bed away from wall flagged', an.list.some((n) => n.key === 'chk.bedwall'));
+    ok('architect: earthquake anchoring tip in Indonesia', an.list.some((n) => n.key === 'tip.anchor'));
+    ok('architect: feng shui lens produces notes', an.list.some((n) => n.sev === 'lens'));
+    const before = A.layoutScore(st);
+    const arr = A.autoArrange(st, 11);
+    const after = A.layoutScore({ ...st, items: arr.items });
+    ok('auto-arrange improves the layout score', after > before, `${before} -> ${after}`);
+
+    // architect fixes: window-blocking shelf and desk-facing-window get a working one-tap fix
+    const findCase = (type, key) => {
+      for (const rot of [0, Math.PI, Math.PI / 2, -Math.PI / 2]) {
+        for (let x = -1.5; x <= 1.5; x += 0.2) {
+          for (let z = -1.9; z <= 1.9; z += 0.2) {
+            const s = { ...st, lens: 'none', items: [{ id: 'q', type, ...CATALOG[type], x, z, rot }] };
+            const n = A.analyse(s).list.find((m) => m.key === key);
+            if (n) return { s, n };
+          }
+        }
+      }
+      return null;
+    };
+    const winCase = findCase('bookshelf', 'chk.window');
+    ok('fix: window-blocking shelf is detected and carries a fix', !!(winCase && winCase.n.fix));
+    if (winCase) {
+      A.applyFix(winCase.s, winCase.n.fix);
+      const still = A.analyse(winCase.s).list.some((m) => m.key === 'chk.window');
+      ok('fix: "clear window" moves the shelf off the window', !still);
+    }
+    const deskCase = findCase('desk', 'chk.deskFacing') || findCase('desk', 'chk.deskGlare');
+    ok('fix: desk facing/backing the window is detected and carries a fix', !!(deskCase && deskCase.n.fix));
+    if (deskCase) {
+      A.applyFix(deskCase.s, deskCase.n.fix);
+      const keys = A.analyse(deskCase.s).list.map((m) => m.key);
+      ok('fix: "turn desk" gives side daylight', keys.includes('chk.deskSide'), keys.join(','));
+    }
+    const lampNote = A.analyse({ ...st, lens: 'none', items: [] }).list.find((m) => m.key === 'tip.layers');
+    ok('fix: missing-lamp tip offers a priced lamp', !!(lampNote && lampNote.fix && lampNote.fix.type === 'floorLamp' && PRICES[lampNote.cost]));
+    const plan = A.planFromText('warm japandi room with more plants and sage green walls', st.finish);
+    ok('describe: "japandi" matches the Japandi template', plan.templateId === 'japandi', plan.templateId);
+    ok('describe: "plants" adds plants', plan.adds.filter((x) => x === 'plant').length >= 2);
+    const planId = A.planFromText('kamar gaya bali tropis, hangat', st.finish);
+    ok('describe: Indonesian "bali tropis" matches Bali', planId.templateId === 'bali', planId.templateId);
+    const planZh = A.planFromText('我想要北歐風格', st.finish);
+    ok('describe: Chinese 北歐 matches Scandinavian', planZh.templateId === 'scandi', planZh.templateId);
+    const lines = A.costLines(st, A.planFromTemplate('japandi'), A.applyPlan(st, A.planFromTemplate('japandi'), () => 'n' + Math.random()));
+    ok('cost: template plan produces priced lines', lines.length >= 4 && lines.every((l) => l.low > 0 && l.high >= l.low), lines.length);
+    const rs = A.costLines(st, A.rentSafePlan(A.planFromTemplate('industrial')), null);
+    ok('rent-safe: no flooring and no electrician', !rs.some((l) => l.id === 'floor' || l.id === 'lightInstall'));
+
+    // G4: i18n coverage, including every dynamic key family
+    const en = DICTS.en;
+    const dyn = [
+      ...['photos', 'room', 'look', 'arrange', 'renovate', 'cost'].map((s) => 'step.' + s),
+      ...['realistic', 'miniature', 'pixel', 'cartoon', 'clay', 'blueprint', 'sketch'].map((s) => 'style.' + s),
+      ...Object.keys(CATALOG).map((k) => 'item.' + k),
+      ...TEMPLATES.map((t) => 'tpl.' + t.id),
+      ...['laminate', 'vinyl', 'parquet', 'oak', 'walnut', 'tile', 'terracotta', 'zellige', 'stone', 'terrazzo', 'concrete', 'carpet', 'tatami', 'ondol'].map((f) => 'cost.floor.' + f),
+      ...['paint', 'plaster', 'wallpaper', 'panel', 'brick', 'wood', 'shiplap', 'tile'].map((f) => 'cost.wall.' + f),
+      ...['none', 'fengshui', 'vastu'].map((l) => 'lens.' + l),
+      ...['N', 'E', 'S', 'W'].map((d) => 'dir.' + d),
+      ...A.DESIGN_TIPS, ...A.MONEY_TIPS,
+      ...['rt.mould', 'rt.cross', 'rt.fan', 'rt.westsun', 'rt.floorHumid', 'rt.insulate', 'rt.warmLight', 'rt.southLight', 'rt.northLight', 'rt.layersSeason', 'rt.shade', 'rt.tileCool', 'rt.quake'],
+    ];
+    const missingEn = dyn.filter((k) => !(k in en));
+    ok('i18n: all dynamic keys exist in English', !missingEn.length, missingEn.join(','));
+    for (const [lang, dict] of Object.entries(DICTS)) {
+      const miss = Object.keys(en).filter((k) => !(k in dict));
+      const extra = Object.keys(dict).filter((k) => !(k in en));
+      const ph = Object.keys(en).filter((k) => k in dict && (en[k].match(/\{\w+\}/g) || []).sort().join() !== (dict[k].match(/\{\w+\}/g) || []).sort().join());
+      ok(`i18n: ${lang} has 100% keys`, !miss.length && !extra.length, miss.concat(extra).slice(0, 8).join(','));
+      ok(`i18n: ${lang} placeholders match`, !ph.length, ph.slice(0, 6).join(','));
+    }
+
+    window.results = results;
+    document.getElementById('out').textContent = results.map((r) => `${r.pass ? 'PASS' : 'FAIL'}  ${r.name}  ${r.detail}`).join('\n');
+    window.unitDone = true;
+  </script>
+</body>
+</html>
