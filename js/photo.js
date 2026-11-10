@@ -1,6 +1,6 @@
 // Photo -> 3D: load, back-wall rectangle, reconstruction mesh, colour sampling, tap-to-mark, optional AI detection.
 import * as THREE from 'three';
-import { reconstruct, pixelTo3D, camToRoom, photoFrameToRoom, medianColor, palette } from './geom.js';
+import { reconstruct, pixelTo3D, camToRoom, photoFrameToRoom, medianColor, palette, readExif, hfovFromF35, DEFAULT_F35 } from './geom.js';
 
 export const WALLS = ['N', 'E', 'S', 'W'];
 export const MAX_SIDE = 1600;
@@ -14,8 +14,17 @@ export function loadImage(src) {
   });
 }
 
-// Downscale to MAX_SIDE, return { canvas, data, w, h, url }.
+// Downscale to MAX_SIDE, return { canvas, data, w, h, url, f35, lensSource, fov }.
+// The lens comes from EXIF (FocalLengthIn35mmFilm) when the photo has it; otherwise 26 mm is assumed.
 export async function preparePhoto(fileOrUrl) {
+  let exif = null;
+  if (typeof fileOrUrl !== 'string' && fileOrUrl.arrayBuffer) {
+    try {
+      exif = readExif(await fileOrUrl.slice(0, 256 * 1024).arrayBuffer());
+    } catch {
+      exif = null;
+    }
+  }
   const src = typeof fileOrUrl === 'string' ? fileOrUrl : URL.createObjectURL(fileOrUrl);
   const img = await loadImage(src);
   const s = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
@@ -27,7 +36,16 @@ export async function preparePhoto(fileOrUrl) {
   const g = c.getContext('2d');
   g.drawImage(img, 0, 0, w, h);
   const data = g.getImageData(0, 0, w, h).data;
-  return { canvas: c, data, w, h, url: c.toDataURL('image/jpeg', 0.85) };
+  const ph = { canvas: c, data, w, h, url: c.toDataURL('image/jpeg', 0.85), exif };
+  setLens(ph, exif && exif.f35 ? exif.f35 : DEFAULT_F35, exif && exif.f35 ? 'exif' : 'assumed');
+  return ph;
+}
+
+// Lens of one photo (35 mm-equivalent focal length) -> its horizontal field of view.
+export function setLens(photo, f35, source) {
+  photo.f35 = f35;
+  photo.lensSource = source;
+  photo.fov = hfovFromF35(f35, photo.w, photo.h);
 }
 
 export function defaultRect(w, h) {

@@ -45,7 +45,8 @@ build tools). CI ([.github/workflows/desktop.yml](.github/workflows/desktop.yml)
 2. **Photos -> 3D.** Drag four corners onto the back wall (or keep the auto guess), enter the ceiling
    height, tap furniture and windows/doors. Ruang reconstructs the room with single-view geometry
    ("Tour into the picture", Horry et al. 1997): the back-wall rectangle plus the image centre as vanishing
-   point gives room width, camera height and floor positions. Wall, floor and ceiling colours are sampled
+   point gives room width, camera height and floor positions. The lens comes from the photo's EXIF
+   (35 mm-equivalent focal length, so 0.5x ultra-wide shots get the right depth); without EXIF you pick 0.5x / 1x / 2x. Wall, floor and ceiling colours are sampled
    from the photo. One photo per wall fuses into one room. Optional on-device AI detection (DETR via
    transformers.js) can pre-mark furniture.
 3. **Look.** Seven render styles: realistic, miniature (tilt-shift), pixel, cartoon (toon + ink outline),

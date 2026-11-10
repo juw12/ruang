@@ -1,6 +1,6 @@
 // Ruang service worker: makes the installed app work offline.
 // Bump VERSION when shipping so phones fetch the new files.
-const VERSION = 'ruang-1.2.0';
+const VERSION = 'ruang-1.3.0';
 const PRECACHE = [
   "./",
   "index.html",

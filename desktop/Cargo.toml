@@ -1,6 +1,6 @@
 [package]
 name = "ruang"
-version = "1.2.0"
+version = "1.3.0"
 description = "Ruang: photograph your room, plan it like an architect"
 authors = ["Juwen Lie"]
 license = "MIT"

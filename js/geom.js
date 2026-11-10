@@ -72,6 +72,65 @@ export function floorPoint(rc, u, v, roomD) {
   return camToRoom(rc, p, roomD);
 }
 
+// ---------- Lens: 35 mm-equivalent focal length -> horizontal field of view ----------
+// Phone makers state the lens as "35 mm equivalent", which is defined on the frame diagonal (CIPA DC-008),
+// so the same number works for 4:3, 16:9 and portrait photos.
+export const FULL_FRAME_DIAG_MM = Math.hypot(36, 24);
+export const DEFAULT_F35 = 26; // typical phone main camera (1x)
+export const LENS_PRESETS = [[13, '0.5x'], [26, '1x'], [52, '2x']]; // 3x telephoto is useless indoors
+
+export function hfovFromF35(f35, imgW, imgH) {
+  const widthMm = (FULL_FRAME_DIAG_MM * imgW) / Math.hypot(imgW, imgH);
+  return (2 * Math.atan(widthMm / (2 * f35))) / D2R;
+}
+
+// Minimal EXIF reader for JPEG: { f35, focal, orientation } (each may be null), or null when there is no EXIF.
+export function readExif(buffer) {
+  const v = new DataView(buffer);
+  if (v.byteLength < 4 || v.getUint16(0) !== 0xffd8) return null;
+  let p = 2;
+  while (p + 4 <= v.byteLength) {
+    const marker = v.getUint16(p);
+    const size = v.getUint16(p + 2);
+    if (marker === 0xffe1 && p + 10 <= v.byteLength && v.getUint32(p + 4) === 0x45786966) return parseTiff(v, p + 10);
+    if ((marker & 0xff00) !== 0xff00 || marker === 0xffda) return null;
+    p += 2 + size;
+  }
+  return null;
+}
+
+function parseTiff(v, t) {
+  if (t + 8 > v.byteLength) return null;
+  const le = v.getUint16(t) === 0x4949;
+  const u16 = (o) => v.getUint16(t + o, le);
+  const u32 = (o) => v.getUint32(t + o, le);
+  const out = { f35: null, focal: null, orientation: null };
+  const readIfd = (off, onTag) => {
+    if (off <= 0 || t + off + 2 > v.byteLength) return;
+    const n = u16(off);
+    for (let i = 0; i < n; i++) {
+      const e = off + 2 + i * 12;
+      if (t + e + 12 > v.byteLength) return;
+      onTag(u16(e), u16(e + 2), e + 8);
+    }
+  };
+  let exifOff = 0;
+  readIfd(u32(4), (tag, type, val) => {
+    if (tag === 0x0112) out.orientation = u16(val);
+    if (tag === 0x8769) exifOff = u32(val);
+  });
+  readIfd(exifOff, (tag, type, val) => {
+    if (tag === 0xa405) out.f35 = type === 3 ? u16(val) : u32(val);
+    if (tag === 0x920a) {
+      const ptr = u32(val);
+      const den = u32(ptr + 4);
+      if (den) out.focal = u32(ptr) / den;
+    }
+  });
+  if (!out.f35) out.f35 = null;
+  return out;
+}
+
 // Default room depth: back wall distance + 0.4 m behind the photographer (assumed), at least 2 m.
 export function defaultDepth(rc) {
   return Math.max(2, rc.Zb + 0.4);

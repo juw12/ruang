@@ -2,7 +2,7 @@
 import { Viewer, STYLES, kelvinToHex } from './viewer.js';
 import { REGIONS, SOURCES, CATALOG, CATALOG_ORDER, TEMPLATES, PRICES, RATES_DATE } from './data.js';
 import { t, setLang, getLang, LANGS, guessLang, regionName } from './i18n.js';
-import { solarPosition, sunVector, fitsThroughDoor, luminance, saturation, overlapDepth, outOfRoom } from './geom.js';
+import { solarPosition, sunVector, fitsThroughDoor, luminance, saturation, overlapDepth, outOfRoom, LENS_PRESETS, DEFAULT_F35, FULL_FRAME_DIAG_MM } from './geom.js';
 import * as P from './photo.js';
 import * as A from './architect.js';
 
@@ -423,6 +423,14 @@ function panelPhotos() {
     ph.wall = w;
     renderPanel();
   })));
+  out.push(h('div', { class: 'field' }, h('span', {}, t('photos.lens')), h('div', { class: 'seg', id: 'lensSeg' }, ...LENS_PRESETS.map(([mm, label]) => h('button', {
+    'aria-pressed': Math.abs(ph.f35 - mm) < 2 ? 'true' : 'false', title: `${mm} mm`, onclick: () => {
+      P.setLens(ph, mm, 'user');
+      renderPanel();
+      drawPhoto();
+    },
+  }, label)))));
+  out.push(h('p', { class: 'muted', id: 'lensNote', style: 'font-size:13px' }, t('photos.lens.' + (ph.lensSource || 'assumed'), { mm: Math.round(ph.f35 || DEFAULT_F35) })));
   out.push(h('div', { class: 'field' }, h('span', {}, t('photos.ceil') + ` (${unitLabel()})`),
     h('input', { class: 'num', type: 'number', step: 0.05, min: 2, max: 6, value: toDisp(S.room.h), onchange: (e) => {
       S.room.h = fromDisp(+e.target.value);
@@ -1105,6 +1113,10 @@ async function loadSample() {
   ph.wall = 'N';
   ph.markers = meta.markers.map((m) => ({ ...m, u: m.u * k, v: m.v * k }));
   ph.sample = true;
+  // the sample was rendered with a known lens: use it, as EXIF would for a real photo
+  ph.fov = meta.truth.cam.hfov;
+  ph.f35 = Math.round(FULL_FRAME_DIAG_MM * ph.w / Math.hypot(ph.w, ph.h) / 2 / Math.tan((ph.fov / 2) * Math.PI / 180));
+  ph.lensSource = 'sample';
   photos = [ph];
   activePhoto = 0;
   photoTool = 'wall';

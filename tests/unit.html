@@ -159,6 +159,57 @@
     const rs = A.costLines(st, A.rentSafePlan(A.planFromTemplate('industrial')), null);
     ok('rent-safe: no flooring and no electrician', !rs.some((l) => l.id === 'floor' || l.id === 'lightInstall'));
 
+    // G1l: lens from EXIF (35 mm-equivalent focal length is defined on the frame diagonal)
+    ok('lens: 26 mm on a 4:3 landscape photo = 67.3 deg wide (+-0.2)', near(G.hfovFromF35(26, 4000, 3000), 67.3, 0.2), G.hfovFromF35(26, 4000, 3000).toFixed(2));
+    ok('lens: same lens, portrait photo = 53.0 deg wide (+-0.2)', near(G.hfovFromF35(26, 3000, 4000), 53.0, 0.2), G.hfovFromF35(26, 3000, 4000).toFixed(2));
+    ok('lens: 0.5x ultra-wide (13 mm) is much wider than 1x', G.hfovFromF35(13, 4000, 3000) > 100, G.hfovFromF35(13, 4000, 3000).toFixed(1));
+    const exifJpeg = (le, f35, orientation, focalNum, focalDen) => {
+      // SOI, APP1 "Exif", TIFF header, IFD0 {Orientation, ExifIFD}, ExifIFD {FocalLength, FocalLengthIn35mmFilm}, rational, EOI
+      const tiff = new DataView(new ArrayBuffer(80));
+      const w16 = (o, x) => tiff.setUint16(o, x, le);
+      const w32 = (o, x) => tiff.setUint32(o, x, le);
+      w16(0, le ? 0x4949 : 0x4d4d); w16(2, 42); w32(4, 8);
+      w16(8, 2);
+      w16(10, 0x0112); w16(12, 3); w32(14, 1); w16(18, orientation);
+      w16(22, 0x8769); w16(24, 4); w32(26, 1); w32(30, 38);
+      w32(34, 0);
+      w16(38, 2);
+      w16(40, 0x920a); w16(42, 5); w32(44, 1); w32(48, 68);
+      w16(52, 0xa405); w16(54, 3); w32(56, 1); w16(60, f35);
+      w32(64, 0);
+      w32(68, focalNum); w32(72, focalDen);
+      const app1Len = 2 + 6 + 80;
+      const out = new Uint8Array(2 + 2 + app1Len + 2);
+      out.set([0xff, 0xd8, 0xff, 0xe1, app1Len >> 8, app1Len & 255, 0x45, 0x78, 0x69, 0x66, 0, 0]);
+      out.set(new Uint8Array(tiff.buffer), 12);
+      out.set([0xff, 0xd9], out.length - 2);
+      return out.buffer;
+    };
+    const exLE = G.readExif(exifJpeg(true, 26, 6, 543, 100));
+    ok('exif: little-endian (Intel) FocalLengthIn35mmFilm + orientation + focal', exLE && exLE.f35 === 26 && exLE.orientation === 6 && near(exLE.focal, 5.43, 1e-6), JSON.stringify(exLE));
+    const exBE = G.readExif(exifJpeg(false, 13, 1, 222, 100));
+    ok('exif: big-endian (Motorola) ultra-wide 13 mm', exBE && exBE.f35 === 13 && exBE.orientation === 1, JSON.stringify(exBE));
+    ok('exif: a JPEG without EXIF returns null', G.readExif(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]).buffer) === null);
+    ok('exif: a PNG returns null', G.readExif(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]).buffer) === null);
+    // end to end: the sample photo with an EXIF segment spliced in, through the app's own photo loader
+    const P = await import('../js/photo.js');
+    const sampleBytes = new Uint8Array(await (await fetch('../assets/sample-room.jpg')).arrayBuffer());
+    const exifSeg = new Uint8Array(exifJpeg(true, 13, 1, 222, 100)).slice(2, -2);
+    const spliced = new Uint8Array(sampleBytes.length + exifSeg.length);
+    spliced.set(sampleBytes.slice(0, 2));
+    spliced.set(exifSeg, 2);
+    spliced.set(sampleBytes.slice(2), 2 + exifSeg.length);
+    const phx = await P.preparePhoto(new Blob([spliced], { type: 'image/jpeg' }));
+    ok('photo loader: lens comes from EXIF (13 mm -> exif, fov from diagonal)', phx.f35 === 13 && phx.lensSource === 'exif' && near(phx.fov, G.hfovFromF35(13, phx.w, phx.h), 1e-9), `${phx.f35} ${phx.lensSource} ${phx.fov.toFixed(1)}`);
+    const phn = await P.preparePhoto(new Blob([sampleBytes], { type: 'image/jpeg' }));
+    ok('photo loader: no EXIF -> assumed 26 mm', phn.f35 === 26 && phn.lensSource === 'assumed', `${phn.f35} ${phn.lensSource}`);
+    // why it matters: a 0.5x photo read as 1x overstates the room width by about 2x
+    const wide = G.reconstruct({ imgW: 1280, imgH: 960, rect: meta.rect, roomH: meta.roomH, fovDeg: G.hfovFromF35(13, 1280, 960) });
+    const asMain = G.reconstruct({ imgW: 1280, imgH: 960, rect: meta.rect, roomH: meta.roomH, fovDeg: G.hfovFromF35(26, 1280, 960) });
+    // width comes from the known ceiling height (lens-independent); the lens sets the distance to the far wall
+    ok('lens: far-wall width does not depend on the lens', near(asMain.roomW, wide.roomW, 1e-9), `${asMain.roomW.toFixed(3)} vs ${wide.roomW.toFixed(3)}`);
+    ok('lens: misreading 0.5x as 1x doubles the room depth (> 1.8x)', asMain.Zb / wide.Zb > 1.8, (asMain.Zb / wide.Zb).toFixed(2));
+
     // G4: i18n coverage, including every dynamic key family
     const en = DICTS.en;
     const dyn = [
@@ -169,6 +220,7 @@
       ...['laminate', 'vinyl', 'parquet', 'oak', 'walnut', 'tile', 'terracotta', 'zellige', 'stone', 'terrazzo', 'concrete', 'carpet', 'tatami', 'ondol'].map((f) => 'cost.floor.' + f),
       ...['paint', 'plaster', 'wallpaper', 'panel', 'brick', 'wood', 'shiplap', 'tile'].map((f) => 'cost.wall.' + f),
       ...['none', 'fengshui', 'vastu'].map((l) => 'lens.' + l),
+      ...['exif', 'assumed', 'user', 'sample'].map((s) => 'photos.lens.' + s),
       ...['N', 'E', 'S', 'W'].map((d) => 'dir.' + d),
       ...A.DESIGN_TIPS, ...A.MONEY_TIPS,
       ...['rt.mould', 'rt.cross', 'rt.fan', 'rt.westsun', 'rt.floorHumid', 'rt.insulate', 'rt.warmLight', 'rt.southLight', 'rt.northLight', 'rt.layersSeason', 'rt.shade', 'rt.tileCool', 'rt.quake'],

@@ -54,5 +54,22 @@ if grep -qi "ruang" "$OUT/android-ui.xml" 2>/dev/null; then
 else
   echo "note: UI tree did not expose WebView text (not fatal)"
 fi
+# Photo picker: dismiss the region dialog, tap "Add photos", check that a system picker takes focus.
+# Coordinates are fractions of the screen (measured on the 320x640 launch screenshot).
+size=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)
+sw=${size%x*}
+sh=${size#*x}
+adb shell input tap $((sw * 266 / 1000)) $((sh * 728 / 1000))
+sleep 3
+adb shell input tap $((sw * 500 / 1000)) $((sh * 883 / 1000))
+sleep 5
+adb exec-out screencap -p > "$OUT/14-android-picker.png"
+focus=$(adb shell dumpsys window | grep -E "mCurrentFocus" | head -1)
+echo "focus after Add photos: $focus"
+if echo "$focus" | grep -qiE "documentsui|photopicker|providers.media|intentresolver|Resolver|Chooser|gallery|files"; then
+  echo "ok  photo picker opened from the app"
+else
+  echo "note: photo picker focus not detected (see 14-android-picker.png)"
+fi
 grep -iE "chromium|console|tauri" "$OUT/android-logcat.txt" | grep -iE "error|uncaught" | head -20 || true
 exit $fail
