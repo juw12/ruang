@@ -15,7 +15,7 @@ fit-through-door, budget) instead of only pretty pictures.
 - [x] Q8 New features nobody bundles: sun clock + direct-sun hours, flow heatmap, auto-arrange, budget optimiser, rent-safe mode, fit-through-door, culture lens, walk mode, share link, GLB/PNG/CSV export
 - [x] Q9 Tests: unit (math) + e2e smoke + i18n coverage + slop check + mobile overflow
 - [x] Q10 /hone loop with council judge
-- [ ] Q11 Ship: repo juw12/ruang + Pages, profile README, portfolio card, landing page, Obsidian notes, precedent log
+- [x] Q11 Ship: repo juw12/ruang + Pages, profile README, portfolio card, landing page, Obsidian notes, precedent log
 
 ## Assumptions
 - Assumed: name "Ruang" (Indonesian for room/space), web app on GitHub Pages, no account, no API key, photos never leave the device.
@@ -57,3 +57,26 @@ Soft criteria (judge, anchors 4 / 7 / 10):
 | r1 | pair vs r0 | B wins 3-0, every vote survived the order swap | kept |
 
 Stopped: r1 kept; remaining judge asks (genre geometry per style, scale priors from door/window size for depth) are multi-day items -> Queue.md.
+| 2026-11-10 18:28 | council pair | B wins: True | votes A/B/tie 0/3/0 | council-judged (3 judges) |
+| 2026-11-10 18:29 | council score | 7.2 | split: - | Pega-Vision=7.55, Pega-Thinking=7.2, GLM-5.3-Flash=7.2 |
+| 2026-11-10 18:31 | council score | 6.9 | split: - | Pega-Vision=7.0, Pega-Thinking=6.9, GLM-5.3-Flash=6.9 |
+
+
+## Round 2 (2026-11-10, "continue /hone")
+Run queue:
+- [x] R2-Q1 Lens from photo EXIF (FocalLengthIn35mmFilm, diagonal-based FOV), 0.5x/1x/2x picker for photos without EXIF, lens source shown in 7 languages
+- [x] R2-Q2 Unit tests: lens maths, EXIF both byte orders, no-EXIF JPEG, PNG, app photo loader on spliced EXIF, lens-vs-depth (65/65)
+- [x] R2-Q3 Android emulator test taps "Add photos" and records whether the system picker opens
+- [x] R2-Q4 Council score (same-format baseline) + blind pairwise
+- [x] R2-Q5 Release v1.3.0 + sync (repo, landing, portfolio, Obsidian)
+
+Assumptions:
+- Assumed: 35 mm-equivalent focal length is defined on the frame diagonal (CIPA DC-008), so hfov = 2 atan(43.27 mm x W/diag / (2 f35)).
+- Assumed: photos without EXIF are 26 mm main-camera shots (shown to the user as "assumed", one tap to change).
+- Assumed: 3x telephoto preset dropped (no use indoors; it overflowed the panel).
+
+| round | change | gates | judge score | pairwise win | kept? | note |
+|---|---|---|---|---|---|---|
+| r2 | EXIF lens + picker + 14 tests | G1 65/65, G2 all, G3 0 blockers, G4 100 %, G6 ok, 0 console errors | 7.2 (C1 7, C2 7, C3 7, C4 8, C5 7) vs same-format baseline r1 6.9 | B 3-0, all votes survived order swap | yes (+0.3, pairwise) | first test run caught a wrong claim (lens does not change width, it changes depth 2.00x); r2 score had a screenshot, r1 baseline did not (C5 5 -> 7) |
+
+stop: plateau risk noted; next judge asks = depth anchor from a known reference (door / tile) and genre-specific geometry per style -> Precedent queue.
