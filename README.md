@@ -22,7 +22,7 @@ exe). Share links made in the desktop app point at the public web app so anyone 
 Build the exe yourself (needs Rust + the MSVC build tools): `python desktop/build.py` ->
 `desktop/target/release/ruang.exe`. CI does the same on every `v*` tag
 ([.github/workflows/desktop.yml](.github/workflows/desktop.yml)) and smoke-tests the real window
-(`tests/desktop_smoke.py`: WebView2 + Playwright over CDP) before attaching the exe to the release.
+(`tests/desktop_smoke.py`: drives the WebView2 window over the DevTools protocol) before attaching the exe to the release.
 
 ## How it works
 
