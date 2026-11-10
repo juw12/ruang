@@ -11,18 +11,32 @@ Live: https://juw12.github.io/ruang/
 
 | Device | How |
 |---|---|
-| **Windows 10/11** | Download `Ruang-<version>-windows-x64.exe` from [Releases](https://github.com/juw12/ruang/releases/latest) and run it. One portable file, no installer; it opens in its own window and works offline. Uses the WebView2 runtime that ships with Windows 10/11. The exe is not code-signed yet, so SmartScreen may ask "More info -> Run anyway". |
-| **Android** | Open the live link in Chrome -> menu -> **Install app** (or *Add to Home screen*). It gets its own icon, opens full-screen and works offline after the first visit. |
-| **iPhone / iPad** | Open the live link in Safari -> Share -> **Add to Home Screen**. |
+| **Windows 10/11 (installer)** | Download `Ruang-<version>-windows-x64-setup.exe` from [Releases](https://github.com/juw12/ruang/releases/latest) and run it. Installs for your user only (no admin), adds a Start-menu entry and an uninstaller. |
+| **Windows 10/11 (portable)** | Or take `Ruang-<version>-windows-x64.exe`: one file, no install, run it from anywhere. |
+| **Android 7+** | Download `Ruang-<version>-android.apk` from [Releases](https://github.com/juw12/ruang/releases/latest), open it, allow "install unknown apps" for your browser once. Native app (system WebView), works offline. Updates install over the old version because every APK is signed with the same release key. |
+| **Android (no download)** | Or open the live link in Chrome -> menu -> **Install app**. |
+| **iPhone / iPad** | Open the live link in Safari -> Share -> **Add to Home Screen**. Gets its own icon, full screen, works offline. |
 | **Mac / Linux / Chromebook** | Chrome or Edge -> the install icon in the address bar. |
 
-The desktop app is a [Tauri 2](https://tauri.app) shell around the same code (web assets embedded in the
-exe). Share links made in the desktop app point at the public web app so anyone can open them.
+Windows files are not code-signed yet, so SmartScreen may say "Windows protected your PC" -> **More info** ->
+**Run anyway**. Check a download against `SHA256SUMS.txt` on the release
+(`Get-FileHash .\Ruang-*.exe`). APK signing certificate SHA-256:
+`38:7F:69:3C:F8:17:AE:58:E7:F3:F0:CC:35:D3:1F:6B:CA:0F:C9:EB:8A:63:D1:75:6C:77:52:CB:A5:7C:18:E9`
+(`apksigner verify --print-certs Ruang-<version>-android.apk`).
 
-Build the exe yourself (needs Rust + the MSVC build tools): `python desktop/build.py` ->
-`desktop/target/release/ruang.exe`. CI does the same on every `v*` tag
-([.github/workflows/desktop.yml](.github/workflows/desktop.yml)) and smoke-tests the real window
-(`tests/desktop_smoke.py`: drives the WebView2 window over the DevTools protocol) before attaching the exe to the release.
+The apps are a [Tauri 2](https://tauri.app) shell around the same code (web assets embedded): WebView2 on
+Windows, the system WebView on Android. Share links made in the apps point at the public web app so anyone
+can open them.
+
+Build it yourself: `python desktop/build.py` -> `desktop/target/release/ruang.exe` (needs Rust + the MSVC
+build tools). CI ([.github/workflows/desktop.yml](.github/workflows/desktop.yml)) builds everything on every
+`v*` tag and only publishes if all checks pass:
+
+- **Windows:** builds the exe + NSIS installer, drives the real WebView2 window over the DevTools protocol
+  (`tests/desktop_smoke.py`), then silently installs, checks the Start-menu shortcut and uninstalls the installer.
+- **Android:** builds a universal APK (arm64, armv7, x86_64) with `tauri android build`, signs it with
+  `apksigner`, installs it on an Android 14 emulator and checks it launches without a crash and renders
+  (`tests/android_smoke.sh`).
 
 ## How it works
 

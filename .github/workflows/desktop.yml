@@ -144,7 +144,7 @@ jobs:
             --out "out/Ruang-$version-android.apk" "$RUNNER_TEMP/aligned.apk"
           rm -f "$RUNNER_TEMP/ruang.p12"
           "$tools/apksigner" verify --verbose --print-certs "out/Ruang-$version-android.apk" | tee out/apk-signature.txt
-          "$tools/aapt2" dump badging "out/Ruang-$version-android.apk" | head -5 | tee out/apk-badging.txt
+          "$tools/aapt2" dump badging "out/Ruang-$version-android.apk" | grep -E "^(package|sdkVersion|targetSdkVersion|native-code)" | tee out/apk-badging.txt
           ls -l out
 
       - uses: actions/upload-artifact@v4
