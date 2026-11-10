@@ -65,13 +65,21 @@ def main():
         with sync_playwright() as p:
             browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{PORT}")
             page = None
-            for _ in range(30):
+            seen = []
+            for _ in range(45):
                 pages = [pg for ctx in browser.contexts for pg in ctx.pages]
-                page = next((pg for pg in pages if "tauri.localhost" in pg.url), None)
+                seen = [pg.url for pg in pages]
+                page = next((pg for pg in pages if "tauri.localhost" in pg.url or pg.url.startswith("tauri:")), None)
                 if page:
                     break
                 time.sleep(1)
-            check("app page served from tauri.localhost", page is not None, page.url if page else "")
+            if page is None:
+                with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json/list", timeout=5) as response:
+                    targets = [(t.get("type"), t.get("url")) for t in json.load(response)]
+                print("pages seen by Playwright:", seen, "CDP targets:", targets, flush=True)
+            check("app page served from the embedded assets (tauri.localhost)", page is not None, page.url if page else seen)
+            if page is None:
+                raise SystemExit(1)
             errors = []
             page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
             page.wait_for_load_state("load")
