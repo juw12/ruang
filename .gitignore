@@ -5,3 +5,10 @@ hone/gates.done
 hone/council_*.json
 __pycache__/
 tests/dbg.py
+
+# hone scratch
+hone/*.pid
+hone/check_page_out/
+hone/card_args.txt
+hone/demo_url.txt
+hone/share_code.txt
