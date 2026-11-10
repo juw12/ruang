@@ -33,6 +33,15 @@ def wait_for_cdp(app, timeout=90):
                 return json.load(response)
         except Exception:
             time.sleep(1)
+    # diagnostics for CI: what is on screen, and is WebView2 running at all?
+    try:
+        from PIL import ImageGrab
+        SHOTS.mkdir(parents=True, exist_ok=True)
+        ImageGrab.grab().save(SHOTS / "12-desktop-timeout.png")
+    except Exception as exc:  # noqa: BLE001
+        print("no screen grab:", exc)
+    tasks = subprocess.run(["tasklist", "/fi", "imagename eq msedgewebview2.exe"], capture_output=True, text=True)
+    print(tasks.stdout[-800:])
     raise SystemExit("WebView2 debugging port never opened")
 
 

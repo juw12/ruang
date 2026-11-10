@@ -41,7 +41,7 @@ jobs:
 
       - name: Smoke-test the native window (WebView2 + Playwright over CDP)
         run: |
-          python -m pip install --quiet playwright
+          python -m pip install --quiet playwright pillow
           python tests/desktop_smoke.py
 
       - name: Name the release file
@@ -58,7 +58,7 @@ jobs:
           name: ruang-windows
           path: |
             out/
-            hone/shots/12-desktop-app.png
+            hone/shots/12-desktop-*.png
           if-no-files-found: warn
 
       - name: Attach to GitHub Release
