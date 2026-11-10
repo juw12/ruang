@@ -23,9 +23,11 @@ SHOTS = ROOT / "hone" / "shots"
 PORT = 9333
 
 
-def wait_for_cdp(timeout=60):
+def wait_for_cdp(app, timeout=90):
     deadline = time.time() + timeout
     while time.time() < deadline:
+        if app.poll() is not None:
+            raise SystemExit(f"ruang.exe exited early with code {app.returncode}")
         try:
             with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json/version", timeout=3) as response:
                 return json.load(response)
@@ -49,7 +51,7 @@ def main():
         print(("PASS " if ok else "FAIL ") + name + ("  " + str(detail) if detail else ""), flush=True)
 
     try:
-        info = wait_for_cdp()
+        info = wait_for_cdp(app)
         check("native window started with WebView2", True, info.get("Browser"))
         with sync_playwright() as p:
             browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{PORT}")

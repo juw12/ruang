@@ -27,6 +27,18 @@ jobs:
       - name: Build ruang.exe (Tauri 2, web app embedded)
         run: python desktop/build.py
 
+      - name: Make sure the WebView2 runtime is present
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $version = (Get-ItemProperty -Path $key -ErrorAction SilentlyContinue).pv
+          if (-not $version) {
+            Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile webview2-setup.exe
+            Start-Process -FilePath .\webview2-setup.exe -ArgumentList '/silent', '/install' -Wait
+            $version = (Get-ItemProperty -Path $key -ErrorAction SilentlyContinue).pv
+          }
+          "WebView2 runtime: $version"
+
       - name: Smoke-test the native window (WebView2 + Playwright over CDP)
         run: |
           python -m pip install --quiet playwright
