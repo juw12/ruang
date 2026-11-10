@@ -2,10 +2,27 @@
 
 **Photo of your room in, priced 3D plan out.** Ruang turns one phone photo per wall into a 3D room you can
 re-style, rearrange and renovate, then prices the plan in your own currency and checks it the way an
-architect would (walking space, door swing, sun, light, budget). It runs entirely in the browser: no
-account, no API key, and your photos never leave the device.
+architect would (walking space, door swing, sun, light, budget). It runs entirely on your device: no
+account, no API key, and your photos never leave it.
 
 Live: https://juw12.github.io/ruang/
+
+## Install it as an app
+
+| Device | How |
+|---|---|
+| **Windows 10/11** | Download `Ruang-<version>-windows-x64.exe` from [Releases](https://github.com/juw12/ruang/releases/latest) and run it. One portable file, no installer; it opens in its own window and works offline. Uses the WebView2 runtime that ships with Windows 10/11. The exe is not code-signed yet, so SmartScreen may ask "More info -> Run anyway". |
+| **Android** | Open the live link in Chrome -> menu -> **Install app** (or *Add to Home screen*). It gets its own icon, opens full-screen and works offline after the first visit. |
+| **iPhone / iPad** | Open the live link in Safari -> Share -> **Add to Home Screen**. |
+| **Mac / Linux / Chromebook** | Chrome or Edge -> the install icon in the address bar. |
+
+The desktop app is a [Tauri 2](https://tauri.app) shell around the same code (web assets embedded in the
+exe). Share links made in the desktop app point at the public web app so anyone can open them.
+
+Build the exe yourself (needs Rust + the MSVC build tools): `python desktop/build.py` ->
+`desktop/target/release/ruang.exe`. CI does the same on every `v*` tag
+([.github/workflows/desktop.yml](.github/workflows/desktop.yml)) and smoke-tests the real window
+(`tests/desktop_smoke.py`: WebView2 + Playwright over CDP) before attaching the exe to the release.
 
 ## How it works
 

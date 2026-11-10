@@ -1,0 +1,18 @@
+[package]
+name = "ruang"
+version = "1.1.0"
+description = "Ruang: photograph your room, plan it like an architect"
+authors = ["Juwen Lie"]
+license = "MIT"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+opt-level = "s"
+strip = true
+panic = "abort"

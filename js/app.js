@@ -859,9 +859,27 @@ function download(blob, name) {
   }, 500);
 }
 
+// The desktop app (Tauri) and file:// copies have no public address, so their share links use the web app.
+const PUBLIC_URL = 'https://juw12.github.io/ruang/';
+
+function isDesktopApp() {
+  return location.hostname === 'tauri.localhost' || location.protocol === 'tauri:' || '__TAURI_INTERNALS__' in window;
+}
+
+function shareBase() {
+  if (isDesktopApp() || !/^https?:$/.test(location.protocol)) return PUBLIC_URL;
+  return location.origin + location.pathname;
+}
+
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !isDesktopApp()) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* offline cache is optional */ });
+  });
+}
+
 async function shareLink() {
   const code = await encodeShare();
-  const url = location.origin + location.pathname + '#r=' + code;
+  const url = shareBase() + '#r=' + code;
   try {
     await navigator.clipboard.writeText(url);
   } catch { /* clipboard blocked */ }
@@ -1338,7 +1356,7 @@ async function boot() {
   goStep(S.step);
   scheduleAnalyse();
   if (!stored && !fromLink) openOnboard(true);
-  window.__ruang = { get S() { return S; }, viewer, A, P, photos: () => photos, setStyle, goStep, setMode, buildFromPhotos, loadSample, applyPlan, keepPlan, encodeShare, decodeShare, currentLines, runAnalyse, notes: () => notes };
+  window.__ruang = { get S() { return S; }, viewer, A, P, photos: () => photos, setStyle, goStep, setMode, buildFromPhotos, loadSample, applyPlan, keepPlan, encodeShare, decodeShare, currentLines, runAnalyse, notes: () => notes, shareBase, isDesktopApp };
   document.body.dataset.ready = '1';
 }
 
