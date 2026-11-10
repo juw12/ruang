@@ -1,6 +1,7 @@
 """Build the Ruang desktop app: copy the web app into dist/ and compile the Tauri exe.
 
-Usage: python desktop/build.py [--offline]
+Usage: python desktop/build.py [--offline] [--copy-only]
+--copy-only: only refresh desktop/dist (used before the Tauri CLI builds the Android APK / Windows installer).
 Output: desktop/target/release/ruang.exe (single file, web assets embedded, needs WebView2 = built into Windows 10/11).
 """
 import shutil
@@ -30,6 +31,8 @@ def copy_web():
 def main():
     dist = copy_web()
     print(f"web app copied to {dist}")
+    if "--copy-only" in sys.argv:
+        return
     command = ["cargo", "build", "--release"]
     if "--offline" in sys.argv:
         command.append("--offline")

@@ -20,11 +20,11 @@
   "G2c drag moves furniture + auto-arrange runs": "moved 0.76 m",
   "G2d renovation template + describe": "split=True describe->scandi",
   "G2e cost in local currency + tips": "total='Rp\\xa014.800.000\\n\u2013 Rp\\xa085.600.000' notes=5",
-  "G2f share link round-trip": "code length 803",
+  "G2f share link round-trip": "code length 808",
   "G2g language switch": "01 Foto 02 Ruang 03 Gaya 04 Tata 05 Renovasi 06 Biaya & tips",
   "G2 no console errors": [],
   "G6 phone 390 px no horizontal overflow": "max scrollWidth=390 errors=[]"
  },
- "seconds": 479.8,
+ "seconds": 302.9,
  "all_pass": true
 }
