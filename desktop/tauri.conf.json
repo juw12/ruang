@@ -7,18 +7,7 @@
     "frontendDist": "dist"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "Ruang - room photo to 3D planner",
-        "width": 1360,
-        "height": 860,
-        "minWidth": 900,
-        "minHeight": 600,
-        "center": true,
-        "dragDropEnabled": false
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }

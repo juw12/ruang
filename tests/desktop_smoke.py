@@ -1,6 +1,6 @@
 """Smoke-test the native Ruang desktop app (Tauri + WebView2), not a browser.
 
-Starts desktop/target/release/ruang.exe with WebView2 remote debugging on,
+Starts desktop/target/release/ruang.exe with RUANG_DEVTOOLS_PORT (WebView2 remote debugging),
 attaches Playwright over CDP and checks: the app window loads the embedded
 web app, the 3D view renders, the sample room loads, the share link points at
 the public web app, and a CSV export download is produced.
@@ -41,7 +41,7 @@ def main():
         raise SystemExit(f"missing {EXE}; run python desktop/build.py first")
     SHOTS.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ)
-    env["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = f"--remote-debugging-port={PORT}"
+    env["RUANG_DEVTOOLS_PORT"] = str(PORT)
     env["NO_PROXY"] = "127.0.0.1,localhost"
     app = subprocess.Popen([str(EXE)], env=env)
     results = []
