@@ -2,7 +2,7 @@
   "name": "ruang-app-shell",
   "private": true,
   "version": "1.3.0",
-  "description": "Tauri CLI for building the Ruang Windows and Android apps (web app lives in the repo root)",
+  "description": "Tauri CLI for building the Ruang Windows, Mac and Android apps (web app lives in the repo root)",
   "scripts": {
     "tauri": "tauri"
   },

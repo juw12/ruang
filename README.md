@@ -16,7 +16,8 @@ Live: https://juw12.github.io/ruang/
 | **Android 7+** | Download `Ruang-<version>-android.apk` from [Releases](https://github.com/juw12/ruang/releases/latest), open it, allow "install unknown apps" for your browser once. Native app (system WebView), works offline. Updates install over the old version because every APK is signed with the same release key. |
 | **Android (no download)** | Or open the live link in Chrome -> menu -> **Install app**. |
 | **iPhone / iPad** | Open the live link in Safari -> Share -> **Add to Home Screen**. Gets its own icon, full screen, works offline. |
-| **Mac / Linux / Chromebook** | Chrome or Edge -> the install icon in the address bar. |
+| **Mac (Apple Silicon and Intel)** | Download `Ruang-<version>-macos-universal.dmg` from [Releases](https://github.com/juw12/ruang/releases/latest), open it and drag Ruang to Applications. The app is not notarised by Apple: the first time, right-click it and choose **Open**. |
+| **Linux / Chromebook** | Chrome or Edge -> the install icon in the address bar. |
 
 Windows files are not code-signed yet, so SmartScreen may say "Windows protected your PC" -> **More info** ->
 **Run anyway**. Check a download against `SHA256SUMS.txt` on the release
