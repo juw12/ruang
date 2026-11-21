@@ -22,17 +22,12 @@
     "category": "Lifestyle",
     "icon": [
       "icons/icon.png",
-      "icons/icon.icns",
       "icons/icon.ico"
     ],
     "windows": {
       "nsis": {
         "installMode": "currentUser"
       }
-    },
-    "macOS": {
-      "signingIdentity": "-",
-      "minimumSystemVersion": "10.15"
     }
   }
 }
