@@ -113,7 +113,7 @@ jobs:
         run: |
           python desktop/build.py --copy-only
           cd desktop
-          npx --yes @tauri-apps/cli@^2 build --target universal-apple-darwin --bundles dmg
+          npx --yes @tauri-apps/cli@^2 build --target universal-apple-darwin --bundles app,dmg
 
       - name: Smoke-test the app (both chips inside, signature holds, starts and stays up)
         run: |
