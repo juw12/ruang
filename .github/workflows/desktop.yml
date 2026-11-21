@@ -1,4 +1,4 @@
-name: Apps (Windows + Android)
+name: Apps (Windows + Mac + Android)
 
 on:
   push:
@@ -87,6 +87,86 @@ jobs:
             out/
             hone/shots/12-desktop-*.png
           if-no-files-found: warn
+
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build Ruang.app + disk image (Tauri 2, one file for Apple Silicon and Intel)
+        run: |
+          python desktop/build.py --copy-only
+          cd desktop
+          npx --yes @tauri-apps/cli@^2 build --target universal-apple-darwin --bundles app,dmg
+
+      - name: Smoke-test the app (both chips inside, signature holds, starts and stays up)
+        run: |
+          app=$(ls -d desktop/target/universal-apple-darwin/release/bundle/macos/*.app | head -n 1)
+          program="$app/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")"
+          archs=$(lipo -archs "$program")
+          echo "chips: $archs"
+          case "$archs" in *arm64*) ;; *) echo "no Apple Silicon build inside"; exit 1 ;; esac
+          case "$archs" in *x86_64*) ;; *) echo "no Intel build inside"; exit 1 ;; esac
+          codesign --verify --deep --strict "$app"
+          "$program" > ruang-mac.log 2>&1 &
+          pid=$!
+          sleep 15
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "Ruang left within 15 s:"
+            cat ruang-mac.log
+            exit 1
+          fi
+          kill "$pid"
+          echo "started and stayed up 15 s"
+
+      - name: Name the release file
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' desktop/Cargo.toml | head -n 1)
+          mkdir -p out
+          cp desktop/target/universal-apple-darwin/release/bundle/dmg/*.dmg "out/Ruang-$version-macos-universal.dmg"
+          (cd out && shasum -a 256 *.dmg > "Ruang-$version-macos-universal.dmg.sha256" && cat *.sha256)
+          echo "RUANG_VERSION=$version" >> "$GITHUB_ENV"
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ruang-mac
+          path: out/
+          if-no-files-found: error
+
+      # A release that was made before the Mac app existed gets its Mac file from a run started by hand on main.
+      # A file that is already there is never replaced.
+      - name: Attach to the release of this version when it has no Mac file
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$RUANG_VERSION"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "no release $tag: nothing to attach to"
+            exit 0
+          fi
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -q -- '-macos-'; then
+            echo "$tag already has its Mac file"
+            exit 0
+          fi
+          gh release upload "$tag" out/*.dmg out/*.sha256 --repo "$GITHUB_REPOSITORY"
 
   android:
     runs-on: ubuntu-latest
@@ -188,13 +268,18 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, android, android-smoke]
+    needs: [windows, mac, android, android-smoke]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: ruang-windows
           path: dl/windows
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ruang-mac
+          path: dl/mac
 
       - uses: actions/download-artifact@v4
         with:
@@ -205,6 +290,7 @@ jobs:
         run: |
           mkdir -p out
           cp dl/windows/out/*.exe out/
+          cp dl/mac/*.dmg out/
           cp dl/android/*.apk out/
           (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
 
@@ -212,5 +298,6 @@ jobs:
         with:
           files: |
             out/*.exe
+            out/*.dmg
             out/*.apk
             out/SHA256SUMS.txt
