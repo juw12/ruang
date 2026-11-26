@@ -12,7 +12,7 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
 
@@ -20,11 +20,11 @@ jobs:
         with:
           workspaces: desktop
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
 
@@ -79,7 +79,7 @@ jobs:
           Copy-Item $setup.FullName "out/Ruang-$version-windows-x64-setup.exe"
           Get-ChildItem out | Format-Table Name, Length
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ruang-windows
@@ -91,7 +91,7 @@ jobs:
   mac:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
         with:
@@ -101,11 +101,11 @@ jobs:
         with:
           workspaces: desktop
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
 
@@ -144,7 +144,7 @@ jobs:
           echo "RUANG_VERSION=$version" >> "$GITHUB_ENV"
           ls -la out
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ruang-mac
           path: out/
@@ -171,9 +171,9 @@ jobs:
   android:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -186,7 +186,7 @@ jobs:
         with:
           workspaces: desktop
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
 
@@ -227,7 +227,7 @@ jobs:
           "$tools/aapt2" dump badging "out/Ruang-$version-android.apk" | grep -E "^(package|sdkVersion|targetSdkVersion|native-code)" | tee out/apk-badging.txt
           ls -l out
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ruang-android
           path: out/
@@ -236,9 +236,9 @@ jobs:
     needs: android
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ruang-android
           path: apk
@@ -259,7 +259,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash tests/android_smoke.sh apk hone/shots
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ruang-android-smoke
@@ -271,17 +271,17 @@ jobs:
     needs: [windows, mac, android, android-smoke]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ruang-windows
           path: dl/windows
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ruang-mac
           path: dl/mac
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ruang-android
           path: dl/android
@@ -294,7 +294,7 @@ jobs:
           cp dl/android/*.apk out/
           (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
 
-      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+      - uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           files: |
             out/*.exe
